@@ -1,3 +1,16 @@
+"""
+Interactive Whiteboard — Static Surface Version (Paper Mode)
+Authors: Mallory Pitts & Molly Myers
+CSC 391 - Computer Vision
+
+A high-accuracy whiteboard system that uses a fixed, paper-based surface.
+Features:
+    - Stable surface localization (paper required)
+    - Crayola-style color detection
+    - Smooth drawing, pause mode, clear, save
+Best for precise drawing on a defined physical surface.
+"""
+
 import cv2
 import numpy as np
 import os
@@ -19,6 +32,12 @@ def order_points(pts):
 
 
 def find_surface(frame, min_area_ratio=0.005):
+    """
+    Try to find the brightest, reasonably large planar region in the frame.
+    Returns 4 corner points in order: top-left, top-right, bottom-right, bottom-left.
+    Returns None if no suitable surface found.
+    """
+    
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
@@ -36,6 +55,7 @@ def find_surface(frame, min_area_ratio=0.005):
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
 
+    # Find contours of bright regions
     contours, _ = cv2.findContours(
         thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
@@ -74,7 +94,7 @@ def find_surface(frame, min_area_ratio=0.005):
 def classify_crayola_color(h, s, v, paper_v=None):
     """
     Map HSV values to an approximate Crayola-like color.
-    NOTE: we are NOT trying to classify black here; black is excluded by the mask.
+    We are NOT trying to classify black here; black is excluded by the mask.
     """
     if paper_v is None or paper_v <= 0:
         paper_v = 220.0
@@ -151,6 +171,7 @@ def find_marker_center(frame, board_mask=None):
         paper_v = 220.0
 
     # ---- Colorful marker mask: high-ish sat, not super dark ----
+    # Saturation threshold for different lighting and paper brightness
     v_color_thresh = int(max(40, 0.35 * paper_v))
     lower_color = np.array([0, 80, v_color_thresh])
     upper_color = np.array([179, 255, 255])
@@ -165,6 +186,7 @@ def find_marker_center(frame, board_mask=None):
     mask_all = cv2.morphologyEx(mask_all, cv2.MORPH_OPEN, kernel, iterations=2)
     mask_all = cv2.morphologyEx(mask_all, cv2.MORPH_CLOSE, kernel, iterations=1)
 
+    # Find contours of marker region
     contours, _ = cv2.findContours(
         mask_all, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
@@ -227,6 +249,7 @@ def main():
     # Pen pause (word mode) toggle
     pen_paused = False
 
+    # Print menu of controls
     print("Controls:")
     print("  q / ESC : quit")
     print("  c       : clear canvas")
@@ -234,13 +257,14 @@ def main():
     print("  s       : save screenshot of canvas (right panel) to ./images")
     print("  SPACE   : toggle pen pause / word mode (no drawing when ON)\n")
 
+    # Main loop for processing frames
     while True:
         ret, frame = cap.read()
         if not ret:
             print("Error: Could not read frame from camera.")
             break
 
-        # *** MIRRORING FIX: we NO LONGER flip horizontally ***
+        
         # frame = cv2.flip(frame, 1)
 
         h, w = frame.shape[:2]
@@ -280,6 +304,7 @@ def main():
             frame, board_mask=board_mask
         )
 
+        # Drawing logic
         if marker_center is None:
             # No marker: reset stroke, but keep pause state
             prev_canvas_pt = None
@@ -369,6 +394,7 @@ def main():
         combined = np.hstack((cam_disp, canvas_disp))
         cv2.imshow("Interactive Whiteboard (Camera | Canvas)", combined)
 
+        # Handle keypresses
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q') or key == 27:
             break

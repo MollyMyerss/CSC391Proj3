@@ -1,9 +1,23 @@
+"""
+Interactive Whiteboard — Dynamic Surface Version (Freeform Mode)
+Authors: Mallory Pitts & Molly Myers
+CSC 391 - Computer Vision
+
+A flexible whiteboard system with dynamic or frozen surface modes.
+Features:
+    - Adaptive surface tracking (brightest region)
+    - Crayola-style color detection
+    - Smooth drawing, pause mode, clear
+    - Dual screenshot saving (camera + canvas)
+Best for casual “draw anywhere” use, with more flexibility than the static version.
+"""
+
 import cv2
 import numpy as np
 import os
 from datetime import datetime
 
-
+# Order points in a consistent way
 def order_points(pts):
     rect = np.zeros((4, 2), dtype="float32")
 
@@ -17,11 +31,10 @@ def order_points(pts):
 
     return rect
 
-
 def find_surface(frame, min_area_ratio=0.005):
     """
     Try to find the brightest, reasonably large planar region in the frame.
-    This is called every frame in dynamic mode, or once in frozen mode.
+    This is called every frame in dynamic mode, or just once in frozen mode.
     """
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -40,6 +53,7 @@ def find_surface(frame, min_area_ratio=0.005):
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
 
+    # Find contours
     contours, _ = cv2.findContours(
         thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
@@ -73,7 +87,6 @@ def find_surface(frame, min_area_ratio=0.005):
             [x,         y + bh   ]
         ], dtype="float32")
         return order_points(pts)
-
 
 def classify_crayola_color(h, s, v):
     """
@@ -168,6 +181,7 @@ def find_marker_center(frame, board_mask=None):
     mask_all = cv2.morphologyEx(mask_all, cv2.MORPH_OPEN, kernel, iterations=2)
     mask_all = cv2.morphologyEx(mask_all, cv2.MORPH_CLOSE, kernel, iterations=1)
 
+    # Find contours of marker region
     contours, _ = cv2.findContours(
         mask_all, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
@@ -242,6 +256,7 @@ def main():
     using_fallback = False
     last_color_name = "none"
 
+    # Print menu of controls
     print("Controls:")
     print("  q / ESC : quit")
     print("  c       : clear canvas")
@@ -250,6 +265,7 @@ def main():
     print("  m       : toggle surface mode (DYNAMIC <-> FROZEN)")
     print("  r       : re-detect surface (in FROZEN mode sets surface to None)\n")
 
+    # Main loop for processing frames
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -297,6 +313,7 @@ def main():
             frame, board_mask=board_mask
         )
 
+        # Drawing logic
         if marker_center is None:
             prev_canvas_pt = None
             smoothed_canvas_pt = None
@@ -388,6 +405,7 @@ def main():
         combined = np.hstack((cam_disp, canvas_disp))
         cv2.imshow("Interactive Whiteboard (Camera | Canvas)", combined)
 
+        # Handle keypresses
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q') or key == 27:
             break
